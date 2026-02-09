@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ HELPER FUNCTIONS ============
+
+    // Get the user's role from the 'users' collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
+    }
+
+    // Check if the user is an Admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // ============ COLLECTIONS ============
+
+    match /reports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (resource.data.reportedBy == request.auth.uid); 
+      allow update, delete: if false; // Archives should be permanent
+    }
+    
+    // 5. Activity Logs (Optional, good for audit)
+    match /activity_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if false; // Internal audit only
+    }
+
+    // ============ USERS COLLECTION ============
+    match /users/{userId} {
+      // Users can read their own profile; Admins can read all
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // Users can create/update their own profile; Admins can update any user (to assign roles)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    // ============ DISTRIBUTORS COLLECTION ============
+    match /distributors/{distributorId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+
+      // Admins can add/edit/delete. 
+      // Existing Owners can write to their own document (based on email check)
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.token.email == resource.data.email);
+    }
+
+    // ============ PHARMACIES COLLECTION ============
+    match /pharmacies/{pharmacyId} {
+      allow read: if isAuthenticated();
+      
+      // Admins can add/edit/delete pharmacies
+      allow write: if isAdmin(); 
+    }
+
+    // ============ COMPANIES COLLECTION ============
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      
+      // Distributors create/update their companies; Admins can override if necessary
+      allow create: if isAuthenticated() && getUserRole() == 'distributor';
+      allow update: if isAuthenticated() && (getUserRole() == 'distributor' || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ============ MEDICINES COLLECTION ============
+    match /medicines/{medicineId} {
+      allow read: if isAuthenticated();
+      
+      // Distributors create; Admins can also create
+      allow create: if isAuthenticated() 
+        && (
+             (getUserRole() == 'distributor' 
+              && request.resource.data.companyId == getUserCompanyId())
+             || isAdmin()
+           );      
+      // Distributors/Pharmacies update status; Admins can update anything
+      allow update: if isAuthenticated() && (
+        getUserRole() == 'distributor' || 
+        getUserRole() == 'pharmacy' || 
+        isAdmin()
+      );
+      
+      // Distributors or Admins can delete
+      allow delete: if isAuthenticated() && (getUserRole() == 'distributor' || isAdmin());
+    }
+  } 
+}
