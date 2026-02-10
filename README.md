@@ -22,8 +22,7 @@
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.x or later)
 - [Firebase CLI](https://firebase.google.com/docs/cli)
 - [FlutterFire CLI](https://firebase.flutter.dev/docs/cli/)
-- A Google Cloud / Firebase project
-- A Gemini API key
+- A Google Cloud / Firebase project with the **Generative Language API** enabled
 
 ### Installation
 
@@ -48,14 +47,15 @@
    - `android/app/google-services.json`
    - `lib/firebase_options.dart`
 
-4. **Add your Gemini API Key**
+4. **Enable the Generative Language API**
    
-   Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+   SafeDose uses **per-user OAuth quota** for Gemini — no API key is needed in the code.
+   Each user's Gemini usage is billed to their own Google account.
    
-   Open `lib/app/data/services/gemini_service.dart` and replace the placeholder:
-   ```dart
-   static const _apiKey = 'YOUR_GEMINI_API_KEY_HERE';
-   ```
+   In your [Google Cloud Console](https://console.cloud.google.com/apis/library), enable:
+   - **Generative Language API**
+   
+   Ensure your Firebase project's OAuth client ID is configured for Android (this is done automatically by `flutterfire configure`).
 
 5. **Set up Firestore Collections**
    
@@ -89,6 +89,16 @@
 
 ---
 
+## 🔑 What Happens on Login
+
+When a user signs in with Google, they will see a **consent screen** requesting the following permissions:
+- **Google Sign-In** — For authentication and profile access
+- **Generative Language API (Gemini)** — To allow the app to use Gemini AI on behalf of the user
+
+This is expected behavior. The app uses **per-user OAuth quota**, meaning each user's AI requests are counted against their own free Google API quota rather than a shared API key. No API key is stored in the app.
+
+---
+
 ## 🔐 Security Notes
 
 The following files contain sensitive data and are **excluded from version control** via `.gitignore`:
@@ -98,8 +108,3 @@ The following files contain sensitive data and are **excluded from version contr
 
 If you fork this repo, you **must** generate your own Firebase configuration using `flutterfire configure`.
 
----
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).

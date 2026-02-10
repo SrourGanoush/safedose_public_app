@@ -2,18 +2,29 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:get/get.dart';
+import 'auth_service.dart';
+import 'auth_http_client.dart';
 import '../models/medicine.dart';
 
 class GeminiService extends GetxService {
-  // TODO: Replace with your own Gemini API key from https://aistudio.google.com/app/apikey
-  static const _apiKey = 'YOUR_GEMINI_API_KEY_HERE';
+  final AuthService _authService = Get.find<AuthService>();
+
+  // The API key is not used for authentication — OAuth handles that via AuthHttpClient.
+  // A dummy value is required by the SDK constructor.
+  static const _apiKey = 'OAuthForPerUserQuota';
 
   late final GenerativeModel _model;
 
   @override
   void onInit() {
     super.onInit();
-    _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+    _model = GenerativeModel(
+      model: 'gemini-2.5-flash',
+      apiKey: _apiKey,
+      httpClient: AuthHttpClient(
+        _authService,
+      ), // Injects OAuth for per-user quota
+    );
   }
 
   Future<String> analyzeMedicine(
